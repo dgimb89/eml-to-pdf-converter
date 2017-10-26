@@ -32,6 +32,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import javax.mail.Part;
 import javax.mail.internet.MimeMessage;
 import javax.mail.internet.MimeUtility;
+import javax.mail.internet.ContentType;
 import java.text.DateFormat;
 import javax.mail.internet.MailDateFormat;
 import java.util.Date;
@@ -45,6 +46,10 @@ import util.Logger;
 import util.StringReplacer;
 import util.StringReplacerCallback;
 
+import com.google.common.base.Strings;
+import com.google.common.io.BaseEncoding;
+import com.google.common.io.ByteStreams;
+import com.sun.mail.util.BASE64DecoderStream;
 import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
 import com.google.common.html.HtmlEscapers;
@@ -83,7 +88,7 @@ public class MimeMessageConverter {
 
 	// html wrapper template for text/plain messages
 	private static final String HTML_WRAPPER_TEMPLATE = "<!DOCTYPE html><html><head><style>body{font-size: 0.5cm;}</style><meta charset=\"%s\"><title>title</title></head><body>%s</body></html>";
-	private static final String ADD_HEADER_IFRAME_JS_TAG_TEMPLATE = "<script id=\"header-v6a8oxpf48xfzy0rhjra\" data-file=\"%s\" type=\"text/javascript\">%s</script>";
+	private static final String ADD_HEADER_IFRAME_JS_TAG_TEMPLATE = "<script id=\"header-v6a8oxpf48xfzy0rhjra\" data-file=\"%s\" type=\"text/javascript\">%s</script><script type=\"text/javascript\">document.body.innerHTML += '%s';</script>";
 	private static final String HEADER_FIELD_TEMPLATE = "<tr><td class=\"header-name\">%s</td><td class=\"header-value\">%s</td></tr>";
 	
 	private static final Pattern IMG_CID_REGEX = Pattern.compile("cid:(.*?)\"", Pattern.DOTALL);
@@ -231,6 +236,30 @@ public class MimeMessageConverter {
 			}
 		}
 
+		String imageAttachements = "";
+		if(mergeAttachments) {
+			List<Part> attachmentParts = MimeMessageParser.getAttachments(message);
+			Logger.debug("Found %s image attachments", attachmentParts.size());
+			for (int i = 0; i < attachmentParts.size(); i++) {
+				Logger.debug("Process Image Attachment %s", i);
+				
+				Part part = attachmentParts.get(i);
+				try {
+
+					if(part.getContentType().startsWith("image/")) {
+
+						BASE64DecoderStream b64ds = (BASE64DecoderStream) part.getContent();
+						String imageBase64 = BaseEncoding.base64().encode(ByteStreams.toByteArray(b64ds));
+
+						MimeObjectEntry<String> image = new MimeObjectEntry<String>(imageBase64, new ContentType(part.getContentType()));
+						imageAttachements += (Strings.isNullOrEmpty(part.getFileName()) ? "" : ("<br/><br/>" + part.getFileName())) + "<br/><img style=\"max-width: 100%; max-height: 100%;\" src=\"data:" + image.getContentType().getBaseType() + ";base64," + image.getEntry() + "\" />";
+					}
+				} catch (Exception e) {
+					// ignore this error
+				}
+			}
+		}
+
 		Logger.debug("Successfully parsed the .eml and converted it into html:");
 
 		Logger.debug("---------------Result-------------");
@@ -276,7 +305,7 @@ public class MimeMessageConverter {
 			Files.write(String.format(tmpHtmlHeaderStr, headers), tmpHtmlHeader, StandardCharsets.UTF_8);
 			
 			// Append this script tag dirty to the bottom
-			htmlBody += String.format(ADD_HEADER_IFRAME_JS_TAG_TEMPLATE, tmpHtmlHeader.toURI(), Resources.toString(Resources.getResource("contentScript.js"), StandardCharsets.UTF_8));
+			htmlBody += String.format(ADD_HEADER_IFRAME_JS_TAG_TEMPLATE, tmpHtmlHeader.toURI(), Resources.toString(Resources.getResource("contentScript.js"), StandardCharsets.UTF_8), imageAttachements);
 		}
 		
 		File tmpHtml = File.createTempFile("emailtopdf", ".html");
@@ -295,7 +324,7 @@ public class MimeMessageConverter {
 			"--viewport-size", "2480x3508",
 				// "--disable-smart-shrinking",
 			"--image-quality", "100",
-			"--zoom", "3.5",
+			//"--zoom", "3.5",
 			"--encoding", charsetName));
 		cmd.addAll(extParams);
 		cmd.add(tmpHtml.getAbsolutePath());

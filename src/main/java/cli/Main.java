@@ -89,13 +89,18 @@ public class Main {
 
 		String out = cli.getOutput();
 
+		boolean prependDateTime = false;
 
 		if (Strings.isNullOrEmpty(cli.getOutput())) {
 			Logger.debug("Suffix: %s", cli.getOutputSuffix());
-			if(Strings.isNullOrEmpty(cli.getOutputSuffix())) {
+			if(cli.getOutputSuffix() == null) {
 				out = Files.getNameWithoutExtension(in) + ".pdf";
 			} else {
-				out = String.format("%s_%d.%s", cli.getOutputSuffix(), MimeMessageConverter.getAndIncrementSerial(), "pdf");
+				prependDateTime = true;
+				if(cli.getOutputSuffix().equals(""))
+					out = String.format("%d.%s", MimeMessageConverter.getAndIncrementSerial(), "pdf");
+				else
+					out = String.format("%s_%d.%s", cli.getOutputSuffix(), MimeMessageConverter.getAndIncrementSerial(), "pdf");
 			}
 
 			File parent = new File(in).getParentFile();
@@ -121,7 +126,6 @@ public class Main {
 		}
 
 		try {
-			boolean prependDateTime = Strings.isNullOrEmpty(cli.getOutputSuffix()) ? false : true;
 			MimeMessageConverter.convertToPdf(in, out, prependDateTime, cli.isHideHeaders(), cli.isExtractAttachments(), cli.isMergeAttachments(), cli.isFilter(), cli.getExtractAttachmentsDir(), extParams);
 		} catch (Exception e) {
 			Logger.error("The eml could not be converted. Error: %s", Throwables.getStackTraceAsString(e));
