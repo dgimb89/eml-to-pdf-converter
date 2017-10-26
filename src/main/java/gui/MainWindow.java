@@ -54,6 +54,7 @@ import javax.swing.event.ListDataEvent;
 import javax.swing.event.ListDataListener;
 
 import cli.Main;
+import mimeparser.MimeMessageConverter;
 
 import com.google.common.base.Strings;
 import com.google.common.io.Files;
@@ -67,6 +68,7 @@ public class MainWindow {
 
 	private JFrame frmEmlToPdf;
 	private JTextField textField;
+	private JTextField tfSuffix;
 	private JLabel lblConvertingEmail;
 	private JProgressBar progressBar;
 	private JButton btnStartConversion;
@@ -111,7 +113,7 @@ public class MainWindow {
 		frmEmlToPdf.setTitle("EML to PDF Converter");
 		frmEmlToPdf.getContentPane().setBackground(Color.WHITE);
 		frmEmlToPdf.setBackground(Color.WHITE);
-		frmEmlToPdf.setBounds(100, 100, 700, 703);
+		frmEmlToPdf.setBounds(100, 100, 700, 720);
 		frmEmlToPdf.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 		frmEmlToPdf.getContentPane().setLayout(null);
 		frmEmlToPdf.setLocationRelativeTo(null);
@@ -212,15 +214,21 @@ public class MainWindow {
 		JPanel panel = new JPanel();
 		panel.setBorder(new TitledBorder(null, "Options", TitledBorder.LEADING, TitledBorder.TOP, null, null));
 		panel.setBackground(Color.WHITE);
-		panel.setBounds(10, 232, 664, 100);
+		panel.setBounds(10, 232, 664, 116);
 		frmEmlToPdf.getContentPane().add(panel);
 		panel.setLayout(null);
 
-		final JCheckBox chckbxAddEmailHeaders = new JCheckBox("Add Email headers to the PDF document");
+		final JCheckBox chckbxAddEmailHeaders = new JCheckBox("Add Email headers to PDF");
 		chckbxAddEmailHeaders.setSelected(true);
 		chckbxAddEmailHeaders.setBackground(Color.WHITE);
-		chckbxAddEmailHeaders.setBounds(10, 17, 632, 23);
+		chckbxAddEmailHeaders.setBounds(10, 17, 260, 23);
 		panel.add(chckbxAddEmailHeaders);
+
+
+		final JCheckBox chckbxFilter = new JCheckBox("Filter E-Mail History");
+		chckbxFilter.setBackground(Color.WHITE);
+		chckbxFilter.setBounds(280, 17, 260, 23);
+		panel.add(chckbxFilter);
 
 		final JRadioButton rdbtnAutomaticProxySelection = new JRadioButton("Automatic Proxy Selection");
 		rdbtnAutomaticProxySelection.setSelected(true);
@@ -267,15 +275,40 @@ public class MainWindow {
 		chckbxUseProxy.setBounds(10, 43, 86, 23);
 		panel.add(chckbxUseProxy);
 
+
+		final JCheckBox mergeAttachments = new JCheckBox("Merge Attachments");
+		mergeAttachments.setBackground(Color.WHITE);
+		mergeAttachments.setBounds(280, 69, 180, 23);
+		panel.add(mergeAttachments);
+
+
 		final JCheckBox chckbxExtractAttachments = new JCheckBox("Extract Attachments");
 		chckbxExtractAttachments.setBackground(Color.WHITE);
 		chckbxExtractAttachments.setBounds(10, 69, 180, 23);
 		panel.add(chckbxExtractAttachments);
 
+
+		final JCheckBox chckbxSuffix = new JCheckBox("File Suffix");
+		chckbxSuffix.setBackground(Color.WHITE);
+		chckbxSuffix.setBounds(10, 87, 180, 23);
+		chckbxSuffix.addChangeListener(new ChangeListener() {
+			@Override
+			public void stateChanged(ChangeEvent e) {
+				tfSuffix.setEnabled(chckbxSuffix.isSelected());
+			}
+		});
+		panel.add(chckbxSuffix);
+
+		tfSuffix = new JTextField();
+		tfSuffix.setEnabled(false);
+		tfSuffix.setBounds(352, 88, 290, 20);
+		panel.add(tfSuffix);
+		tfSuffix.setColumns(10);
+
 		JPanel panelProgress = new JPanel();
 		panelProgress.setBorder(new TitledBorder(null, "", TitledBorder.LEADING, TitledBorder.TOP, null, null));
 		panelProgress.setBackground(Color.WHITE);
-		panelProgress.setBounds(10, 343, 664, 127);
+		panelProgress.setBounds(10, 350, 664, 127);
 		frmEmlToPdf.getContentPane().add(panelProgress);
 		panelProgress.setLayout(null);
 
@@ -301,7 +334,7 @@ public class MainWindow {
 				new Thread(new Runnable() {
 					@Override
 					public void run() {
-						startConversion(Collections.list(listModel.elements()), chckbxAddEmailHeaders.isSelected(), proxy, chckbxExtractAttachments.isSelected());
+						startConversion(Collections.list(listModel.elements()), chckbxAddEmailHeaders.isSelected(), proxy, chckbxExtractAttachments.isSelected(), mergeAttachments.isSelected(), chckbxSuffix.isSelected() ? tfSuffix.getText() : null, chckbxFilter.isSelected());
 					}
 				}).start();
 			}
@@ -332,7 +365,7 @@ public class MainWindow {
 		frmEmlToPdf.getContentPane().add(btnRemoveSelectedFrom);
 
 		JScrollPane scrollPaneLog = new JScrollPane();
-		scrollPaneLog.setBounds(10, 481, 664, 183);
+		scrollPaneLog.setBounds(10, 497, 664, 183);
 		scrollPaneLog.setBorder(new TitledBorder(null, "Log", TitledBorder.LEADING, TitledBorder.TOP, null, null));
 		scrollPaneLog.setBackground(Color.WHITE);
 		frmEmlToPdf.getContentPane().add(scrollPaneLog);
@@ -360,8 +393,9 @@ public class MainWindow {
 	 *
 	 * @param enumeration
 	 */
-	private void startConversion(List<String> l, boolean showHeaders, String proxy, boolean extractAttachments) {
+	private void startConversion(List<String> l, boolean showHeaders, String proxy, boolean extractAttachments, boolean mergeAttachments, String suffix, boolean filter) {
 		try {
+			MimeMessageConverter.resetSerial();
 			ArrayList<String> argsOptions = new ArrayList<String>();
 
 			if (!showHeaders) {
@@ -373,8 +407,21 @@ public class MainWindow {
 				argsOptions.add(proxy);
 			}
 
+			if (!Strings.isNullOrEmpty(suffix)) {
+				argsOptions.add("--output-suffix");
+				argsOptions.add(suffix);
+			}
+
 			if (extractAttachments) {
 				argsOptions.add("--extract-attachments");
+			}
+
+			if(mergeAttachments) {
+				argsOptions.add("--merge-attachments");
+			}
+
+			if(filter) {
+				argsOptions.add("--filter");
 			}
 
 			int listSize = l.size();

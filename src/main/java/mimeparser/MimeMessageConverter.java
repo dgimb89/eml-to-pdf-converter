@@ -27,12 +27,18 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.mail.Part;
 import javax.mail.internet.MimeMessage;
 import javax.mail.internet.MimeUtility;
+import java.text.DateFormat;
+import javax.mail.internet.MailDateFormat;
+import java.util.Date;
+import java.util.Locale;
 
 import org.apache.tika.mime.MimeTypes;
+import org.apache.pdfbox.multipdf.PDFMergerUtility;
 
 import util.LogLevel;
 import util.Logger;
@@ -81,7 +87,9 @@ public class MimeMessageConverter {
 	private static final String HEADER_FIELD_TEMPLATE = "<tr><td class=\"header-name\">%s</td><td class=\"header-value\">%s</td></tr>";
 	
 	private static final Pattern IMG_CID_REGEX = Pattern.compile("cid:(.*?)\"", Pattern.DOTALL);
-	private static final Pattern IMG_CID_PLAIN_REGEX = Pattern.compile("\\[cid:(.*?)\\]", Pattern.DOTALL);
+	private static final Pattern IMG_CID_PLAIN_REGEX = Pattern.compile("\\[(?:cid:)??(.*?)\\]", Pattern.DOTALL);
+	private static final Pattern BLOCKQUOTE_REGEX = Pattern.compile("<blockquote[^>]*>(.*?)</blockquote>", Pattern.DOTALL | Pattern.CASE_INSENSITIVE);
+	private static AtomicInteger serial = new AtomicInteger(1);
 
 	/**
 	 * Execute a command and redirect its output to the standard output.
@@ -102,11 +110,19 @@ public class MimeMessageConverter {
 		}
 	}
 
+	public static int getAndIncrementSerial() {
+		return serial.getAndIncrement();
+	}
+
+	public static void resetSerial() {
+		serial.set(1);
+	}
+
 	/**
 	 * Convert an EML file to PDF.
 	 * @throws Exception
 	 */
-	public static void convertToPdf(String emlPath, String pdfOutputPath, boolean hideHeaders, boolean extractAttachments, String attachmentsdir, List<String> extParams) throws Exception {
+	public static void convertToPdf(String emlPath, String pdfOutputPath, boolean prependDateTime, boolean hideHeaders, boolean extractAttachments, boolean mergeAttachments, boolean filter, String attachmentsdir, List<String> extParams) throws Exception {
 		Logger.info("Start converting %s to %s", emlPath, pdfOutputPath);
 		
 		Logger.debug("Read eml file from %s", emlPath);
@@ -156,8 +172,11 @@ public class MimeMessageConverter {
 		/* ######### Embed images in the html ######### */
 		String htmlBody = bodyEntry.getEntry();
 		if (bodyEntry.getContentType().match("text/html")) {
+			if(filter) {
+				htmlBody = BLOCKQUOTE_REGEX.matcher(htmlBody).replaceAll("");
+			}
 			if (inlineImageMap.size() > 0) {
-				Logger.debug("Embed the referenced images (cid) using <img src=\"data:image ...> syntax");
+				Logger.debug("Embed %d referenced images (cid) using <img src=\"data:image ...> syntax", inlineImageMap.size());
 
 				// find embedded images and embed them in html using <img src="data:image ...> syntax
 				htmlBody = StringReplacer.replace(htmlBody, IMG_CID_REGEX, new StringReplacerCallback() {
@@ -183,9 +202,17 @@ public class MimeMessageConverter {
 			// replace whitespace with &nbsp;
 			htmlBody = htmlBody.replace(" ", "&nbsp;");
 
+			if(filter) {
+				if(htmlBody.toLowerCase().indexOf("von:") > 0)
+					htmlBody = htmlBody.substring(0, htmlBody.toLowerCase().indexOf("von:"));
+
+				if(htmlBody.toLowerCase().indexOf("from:") > 0)
+					htmlBody = htmlBody.substring(0, htmlBody.toLowerCase().indexOf("from:"));
+			}
+
 			htmlBody = String.format(HTML_WRAPPER_TEMPLATE, charsetName, htmlBody);
 			if (inlineImageMap.size() > 0) {
-				Logger.debug("Embed the referenced images (cid) using <img src=\"data:image ...> syntax");
+				Logger.debug("Embed %d referenced images (cid) using <img src=\"data:image ...> syntax", inlineImageMap.size());
 
 				// find embedded images and embed them in html using <img src="data:image ...> syntax
 				htmlBody = StringReplacer.replace(htmlBody, IMG_CID_PLAIN_REGEX, new StringReplacerCallback() {
@@ -229,19 +256,21 @@ public class MimeMessageConverter {
 			String headers = "";
 			
 			if (!Strings.isNullOrEmpty(from)) {
-				headers += String.format(HEADER_FIELD_TEMPLATE, "From", HtmlEscapers.htmlEscaper().escape(from));
+				headers += String.format(HEADER_FIELD_TEMPLATE, "Von", HtmlEscapers.htmlEscaper().escape(from));
 			}
 			
 			if (!Strings.isNullOrEmpty(subject)) {
-				headers += String.format(HEADER_FIELD_TEMPLATE, "Subject", "<b>" + HtmlEscapers.htmlEscaper().escape(subject) + "<b>");
+				headers += String.format(HEADER_FIELD_TEMPLATE, "Betreff", "<b>" + HtmlEscapers.htmlEscaper().escape(subject) + "<b>");
 			}
 			
 			if (recipients.length > 0) {
-				headers += String.format(HEADER_FIELD_TEMPLATE, "To", HtmlEscapers.htmlEscaper().escape(Joiner.on(", ").join(recipients)));
+				headers += String.format(HEADER_FIELD_TEMPLATE, "An", HtmlEscapers.htmlEscaper().escape(Joiner.on(", ").join(recipients)));
 			}
 			
 			if (!Strings.isNullOrEmpty(sentDateStr)) {
-				headers += String.format(HEADER_FIELD_TEMPLATE, "Date", HtmlEscapers.htmlEscaper().escape(sentDateStr));
+				DateFormat df = DateFormat.getDateTimeInstance(DateFormat.FULL, DateFormat.SHORT, Locale.GERMANY);
+				MailDateFormat mdf = new MailDateFormat();
+				headers += String.format(HEADER_FIELD_TEMPLATE, "Datum", HtmlEscapers.htmlEscaper().escape(df.format(mdf.parse(sentDateStr))));
 			}
 			
 			Files.write(String.format(tmpHtmlHeaderStr, headers), tmpHtmlHeader, StandardCharsets.UTF_8);
@@ -255,13 +284,19 @@ public class MimeMessageConverter {
 		Files.write(htmlBody, tmpHtml, Charset.forName(charsetName));
 
 		File pdf = new File(pdfOutputPath);
+		if(prependDateTime) {
+			Date mailDate = new MailDateFormat().parse(sentDateStr);
+			File parent = pdf.getParentFile();
+			pdf = new File(parent, String.format("%tF_%tH-%tM_%s", mailDate, mailDate, mailDate, pdf.getName()));
+		}
 		Logger.debug("Write pdf to %s", pdf.getAbsolutePath());
 
 		List<String> cmd = new ArrayList<String>(Arrays.asList("wkhtmltopdf",
-				"--viewport-size", "2480x3508",
+			"--viewport-size", "2480x3508",
 				// "--disable-smart-shrinking",
-				"--image-quality", "100",
-				"--encoding", charsetName));
+			"--image-quality", "100",
+			"--zoom", "3.5",
+			"--encoding", charsetName));
 		cmd.addAll(extParams);
 		cmd.add(tmpHtml.getAbsolutePath());
 		cmd.add(pdf.getAbsolutePath());
@@ -276,6 +311,31 @@ public class MimeMessageConverter {
 		if (tmpHtmlHeader != null) {
 			if (!tmpHtmlHeader.delete()) {
 				tmpHtmlHeader.deleteOnExit();
+			}
+		}
+
+		if(mergeAttachments) {
+			Logger.info("Merge attachments");
+			
+			List<Part> attachmentParts = MimeMessageParser.getAttachments(message);
+			Logger.debug("Found %s attachments", attachmentParts.size());
+			for (int i = 0; i < attachmentParts.size(); i++) {
+				Logger.debug("Process Attachment %s", i);
+				
+				Part part = attachmentParts.get(i);
+				try {
+					Logger.debug("Attachment Type: %s", part.getContentType());
+
+					if(part.getContentType().startsWith("application/pdf")) {
+						PDFMergerUtility ut = new PDFMergerUtility();
+						ut.addSource(pdf);
+						ut.addSource(part.getInputStream());
+						ut.setDestinationFileName(pdf.getAbsolutePath());
+						ut.mergeDocuments();
+					}
+				} catch (Exception e) {
+					// ignore this error
+				}
 			}
 		}
 		
@@ -331,7 +391,6 @@ public class MimeMessageConverter {
 				fos.close();
 			}
 		}
-		
 		Logger.info("Conversion finished");
 	}
 }

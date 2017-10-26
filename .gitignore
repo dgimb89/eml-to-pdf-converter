@@ -1,3 +1,5 @@
+/ui
+.DS_Store
 /bin
 /build
 /.classpath
@@ -5,3 +7,4 @@
 /gradle-app.setting
 /.settings
 /.gradle
+/src/test/resources/eml-elkom-plan

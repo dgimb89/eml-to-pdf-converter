@@ -139,7 +139,7 @@ public class MimeMessageParser {
 					return;
 				}
 				
-				// use text/plain entries only when we found nothing before
+				// use text/html entries only when we found nothing before
 				if (result.getEntry().isEmpty() || p.isMimeType("text/html")) {
 					result.setEntry(stringContent);
 					result.setContentType(new ContentType(p.getContentType()));
@@ -168,6 +168,7 @@ public class MimeMessageParser {
 		
 					BASE64DecoderStream b64ds = (BASE64DecoderStream) p.getContent();
 					String imageBase64 = BaseEncoding.base64().encode(ByteStreams.toByteArray(b64ds));
+					Logger.debug("Inline Image: %s", id);
 					result.put(id, new MimeObjectEntry<String>(imageBase64, new ContentType(p.getContentType())));
 				}
 			}

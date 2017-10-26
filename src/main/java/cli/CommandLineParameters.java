@@ -32,6 +32,9 @@ public class CommandLineParameters {
 	@Parameter(names = {"-o", "--output-filepath"}, description = "Filepath of the produced PDF document. If this option is ommited the PDF will be placed alongside the EML File.")
 	private String output;
 
+	@Parameter(names = {"-os", "--output-suffix"}, description = "Output filenames in the following format: dd-MM-yy_hh-mm_SUFFIX_SERIAL-NUMBER.pdf.")
+	private String outputSuffix;
+
 	@Parameter(names = {"-p", "--proxy"}, description = "Proxy (e.g. \"http://10.64.1.74:81\"). If \"auto\" is supplied the default system proxy will be used.")
 	private String proxy;
 
@@ -55,6 +58,12 @@ public class CommandLineParameters {
 	
 	@Parameter(names = {"-a", "--extract-attachments"}, description = "Extract Attachments.")
 	private boolean extractAttachments = false;
+
+	@Parameter(names = {"-m", "--merge-attachments"}, description = "Merge Attachments.")
+	private boolean mergeAttachments = false;
+
+	@Parameter(names = {"-f", "--filter"}, description = "Filter E-Mail Body to only include the actual E-Mail text but not whole history.")
+	private boolean filter = false;
 	
 	@Parameter(names = {"-ad", "--extract-attachments-directory"}, description = "Extract Attachments to this Directory, if this option is not present the directory is besides the pdf as \"<pdf-name>-attachments\".")
 	private String extractAttachmentsDir;
@@ -76,6 +85,14 @@ public class CommandLineParameters {
 
 	public void setOutput(String output) {
 		this.output = output;
+	}
+
+	public String getOutputSuffix() {
+		return outputSuffix;
+	}
+
+	public void setOutputSuffix(String outputSuffix) {
+		this.outputSuffix = outputSuffix;
 	}
 
 	public boolean isDebug() {
@@ -140,6 +157,22 @@ public class CommandLineParameters {
 
 	public void setExtractAttachments(boolean extractAttachments) {
 		this.extractAttachments = extractAttachments;
+	}
+
+	public boolean isMergeAttachments() {
+		return mergeAttachments;
+	}
+
+	public void setMergeAttachments(boolean mergeAttachments) {
+		this.mergeAttachments = mergeAttachments;
+	}
+
+	public boolean isFilter() {
+		return filter;
+	}
+
+	public void setFilter(boolean filter) {
+		this.filter = filter;
 	}
 
 	public String getExtractAttachmentsDir() {

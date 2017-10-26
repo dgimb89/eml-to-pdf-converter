@@ -91,7 +91,12 @@ public class Main {
 
 
 		if (Strings.isNullOrEmpty(cli.getOutput())) {
-			out = Files.getNameWithoutExtension(in) + ".pdf";
+			Logger.debug("Suffix: %s", cli.getOutputSuffix());
+			if(Strings.isNullOrEmpty(cli.getOutputSuffix())) {
+				out = Files.getNameWithoutExtension(in) + ".pdf";
+			} else {
+				out = String.format("%s_%d.%s", cli.getOutputSuffix(), MimeMessageConverter.getAndIncrementSerial(), "pdf");
+			}
 
 			File parent = new File(in).getParentFile();
 			if (parent != null) {
@@ -116,7 +121,8 @@ public class Main {
 		}
 
 		try {
-			MimeMessageConverter.convertToPdf(in, out, cli.isHideHeaders(), cli.isExtractAttachments(), cli.getExtractAttachmentsDir(), extParams);
+			boolean prependDateTime = Strings.isNullOrEmpty(cli.getOutputSuffix()) ? false : true;
+			MimeMessageConverter.convertToPdf(in, out, prependDateTime, cli.isHideHeaders(), cli.isExtractAttachments(), cli.isMergeAttachments(), cli.isFilter(), cli.getExtractAttachmentsDir(), extParams);
 		} catch (Exception e) {
 			Logger.error("The eml could not be converted. Error: %s", Throwables.getStackTraceAsString(e));
 		}
