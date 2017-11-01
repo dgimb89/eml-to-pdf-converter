@@ -304,8 +304,9 @@ public class MainWindow {
 		tfSuffix = new JTextField();
 		tfSuffix.setEnabled(false);
 		tfSuffix.setBounds(352, 95, 290, 20);
-		panel.add(tfSuffix);
 		tfSuffix.setColumns(10);
+		panel.add(tfSuffix);
+		chckbxSuffix.setSelected(true);
 
 		JPanel panelProgress = new JPanel();
 		panelProgress.setBorder(new TitledBorder(null, "", TitledBorder.LEADING, TitledBorder.TOP, null, null));

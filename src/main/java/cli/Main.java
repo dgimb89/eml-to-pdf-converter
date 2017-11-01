@@ -100,7 +100,7 @@ public class Main {
 				if(cli.getOutputSuffix().equals(""))
 					out = String.format("%d.%s", MimeMessageConverter.getAndIncrementSerial(), "pdf");
 				else
-					out = String.format("%s_%d.%s", cli.getOutputSuffix(), MimeMessageConverter.getAndIncrementSerial(), "pdf");
+					out = String.format("%s.%s", cli.getOutputSuffix(), "pdf");
 			}
 
 			File parent = new File(in).getParentFile();
