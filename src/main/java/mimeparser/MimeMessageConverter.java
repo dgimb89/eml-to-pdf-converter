@@ -316,7 +316,7 @@ public class MimeMessageConverter {
 		if(prependDateTime) {
 			Date mailDate = new MailDateFormat().parse(sentDateStr);
 			File parent = pdf.getParentFile();
-			pdf = new File(parent, String.format("%tF_%tH-%tM_%s", mailDate, mailDate, mailDate, pdf.getName()));
+			pdf = new File(parent, String.format("%tF_%tH-%tM%s", mailDate, mailDate, mailDate, pdf.getName()));
 		}
 		Logger.debug("Write pdf to %s", pdf.getAbsolutePath());
 

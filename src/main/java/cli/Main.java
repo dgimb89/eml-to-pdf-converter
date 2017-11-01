@@ -98,9 +98,9 @@ public class Main {
 			} else {
 				prependDateTime = true;
 				if(cli.getOutputSuffix().equals(""))
-					out = String.format("%d.%s", MimeMessageConverter.getAndIncrementSerial(), "pdf");
+					out = String.format(".%s", "pdf");
 				else
-					out = String.format("%s.%s", cli.getOutputSuffix(), "pdf");
+					out = String.format("_%s.%s", cli.getOutputSuffix(), "pdf");
 			}
 
 			File parent = new File(in).getParentFile();
