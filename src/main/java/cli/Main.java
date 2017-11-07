@@ -126,7 +126,7 @@ public class Main {
 		}
 
 		try {
-			MimeMessageConverter.convertToPdf(in, out, prependDateTime, cli.isHideHeaders(), cli.isExtractAttachments(), cli.isMergeAttachments(), cli.isFilter(), cli.getExtractAttachmentsDir(), extParams);
+			MimeMessageConverter.convertToPdf(in, out, prependDateTime, cli.isHideHeaders(), cli.isExtractAttachments(), cli.isMergePDF(), cli.isMergeImages(), cli.isFilter(), cli.getExtractAttachmentsDir(), extParams);
 		} catch (Exception e) {
 			Logger.error("The eml could not be converted. Error: %s", Throwables.getStackTraceAsString(e));
 		}

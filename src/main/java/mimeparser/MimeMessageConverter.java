@@ -94,6 +94,7 @@ public class MimeMessageConverter {
 	private static final Pattern IMG_CID_REGEX = Pattern.compile("cid:(.*?)\"", Pattern.DOTALL);
 	private static final Pattern IMG_CID_PLAIN_REGEX = Pattern.compile("\\[(?:cid:)??(.*?)\\]", Pattern.DOTALL);
 	private static final Pattern BLOCKQUOTE_REGEX = Pattern.compile("<blockquote[^>]*>(.*?)</blockquote>", Pattern.DOTALL | Pattern.CASE_INSENSITIVE);
+	private static final Pattern IMG_REGEXP = Pattern.compile("<img[^>]*?>", Pattern.DOTALL | Pattern.CASE_INSENSITIVE);
 	private static AtomicInteger serial = new AtomicInteger(1);
 
 	/**
@@ -127,7 +128,7 @@ public class MimeMessageConverter {
 	 * Convert an EML file to PDF.
 	 * @throws Exception
 	 */
-	public static void convertToPdf(String emlPath, String pdfOutputPath, boolean prependDateTime, boolean hideHeaders, boolean extractAttachments, boolean mergeAttachments, boolean filter, String attachmentsdir, List<String> extParams) throws Exception {
+	public static void convertToPdf(String emlPath, String pdfOutputPath, boolean prependDateTime, boolean hideHeaders, boolean extractAttachments, boolean mergePDF, boolean mergeImages, boolean filter, String attachmentsdir, List<String> extParams) throws Exception {
 		Logger.info("Start converting %s to %s", emlPath, pdfOutputPath);
 		
 		Logger.debug("Read eml file from %s", emlPath);
@@ -182,21 +183,24 @@ public class MimeMessageConverter {
 			}
 			if (inlineImageMap.size() > 0) {
 				Logger.debug("Embed %d referenced images (cid) using <img src=\"data:image ...> syntax", inlineImageMap.size());
+				if(mergeImages) {
+					// find embedded images and embed them in html using <img src="data:image ...> syntax
+					htmlBody = StringReplacer.replace(htmlBody, IMG_CID_REGEX, new StringReplacerCallback() {
+						@Override
+						public String replace(Matcher m) throws Exception {
+							MimeObjectEntry<String> base64Entry = inlineImageMap.get("<" + m.group(1) + ">");
 
-				// find embedded images and embed them in html using <img src="data:image ...> syntax
-				htmlBody = StringReplacer.replace(htmlBody, IMG_CID_REGEX, new StringReplacerCallback() {
-					@Override
-					public String replace(Matcher m) throws Exception {
-						MimeObjectEntry<String> base64Entry = inlineImageMap.get("<" + m.group(1) + ">");
+							// found no image for this cid, just return the matches string as it is
+							if (base64Entry == null) {
+								return m.group();
+							}
 
-						// found no image for this cid, just return the matches string as it is
-						if (base64Entry == null) {
-							return m.group();
+							return "data:" + base64Entry.getContentType().getBaseType() + ";base64," + base64Entry.getEntry() + "\"";
 						}
-
-						return "data:" + base64Entry.getContentType().getBaseType() + ";base64," + base64Entry.getEntry() + "\"";
-					}
-				});
+					});
+				} else {
+					htmlBody = IMG_REGEXP.matcher(htmlBody).replaceAll("");
+				}
 			}
 		} else {
 			Logger.debug("No html message body could be found, fall back to text/plain and embed it into a html document");
@@ -216,7 +220,7 @@ public class MimeMessageConverter {
 			}
 
 			htmlBody = String.format(HTML_WRAPPER_TEMPLATE, charsetName, htmlBody);
-			if (inlineImageMap.size() > 0) {
+			if (mergeImages && inlineImageMap.size() > 0) {
 				Logger.debug("Embed %d referenced images (cid) using <img src=\"data:image ...> syntax", inlineImageMap.size());
 
 				// find embedded images and embed them in html using <img src="data:image ...> syntax
@@ -237,7 +241,7 @@ public class MimeMessageConverter {
 		}
 
 		String imageAttachements = "";
-		if(mergeAttachments) {
+		if(mergeImages) {
 			List<Part> attachmentParts = MimeMessageParser.getAttachments(message);
 			Logger.debug("Found %s image attachments", attachmentParts.size());
 			for (int i = 0; i < attachmentParts.size(); i++) {
@@ -252,7 +256,7 @@ public class MimeMessageConverter {
 						String imageBase64 = BaseEncoding.base64().encode(ByteStreams.toByteArray(b64ds));
 
 						MimeObjectEntry<String> image = new MimeObjectEntry<String>(imageBase64, new ContentType(part.getContentType()));
-						imageAttachements += (Strings.isNullOrEmpty(part.getFileName()) ? "" : ("<br/><br/>" + part.getFileName())) + "<br/><img style=\"max-width: 100%; max-height: 100%;\" src=\"data:" + image.getContentType().getBaseType() + ";base64," + image.getEntry() + "\" />";
+						imageAttachements += (Strings.isNullOrEmpty(part.getFileName()) ? "" : ("<br/><br/>" + part.getFileName())) + "<br/><img style=\"max-width: 40%% !important; max-height: 40%% !important;\" src=\"data:" + image.getContentType().getBaseType() + ";base64," + image.getEntry() + "\" />";
 					}
 				} catch (Exception e) {
 					// ignore this error
@@ -343,7 +347,7 @@ public class MimeMessageConverter {
 			}
 		}
 
-		if(mergeAttachments) {
+		if(mergePDF) {
 			Logger.info("Merge attachments");
 			
 			List<Part> attachmentParts = MimeMessageParser.getAttachments(message);

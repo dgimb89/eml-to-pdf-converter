@@ -59,8 +59,11 @@ public class CommandLineParameters {
 	@Parameter(names = {"-a", "--extract-attachments"}, description = "Extract Attachments.")
 	private boolean extractAttachments = false;
 
-	@Parameter(names = {"-m", "--merge-attachments"}, description = "Merge Attachments.")
-	private boolean mergeAttachments = false;
+	@Parameter(names = {"-mpdf", "--merge-pdf"}, description = "Merge PDF.")
+	private boolean mergePDF = false;
+
+	@Parameter(names = {"-mimg", "--merge-images"}, description = "Merge Images.")
+	private boolean mergeImages = false;
 
 	@Parameter(names = {"-f", "--filter"}, description = "Filter E-Mail Body to only include the actual E-Mail text but not whole history.")
 	private boolean filter = false;
@@ -159,12 +162,20 @@ public class CommandLineParameters {
 		this.extractAttachments = extractAttachments;
 	}
 
-	public boolean isMergeAttachments() {
-		return mergeAttachments;
+	public boolean isMergePDF() {
+		return mergePDF;
 	}
 
-	public void setMergeAttachments(boolean mergeAttachments) {
-		this.mergeAttachments = mergeAttachments;
+	public void setMergePDF(boolean mergePDF) {
+		this.mergePDF = mergePDF;
+	}
+
+	public boolean isMergeImages() {
+		return mergeImages;
+	}
+
+	public void setMergeImages(boolean mergeImages) {
+		this.mergeImages = mergeImages;
 	}
 
 	public boolean isFilter() {

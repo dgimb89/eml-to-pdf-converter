@@ -277,11 +277,18 @@ public class MainWindow {
 		panel.add(chckbxUseProxy);
 
 
-		final JCheckBox mergeAttachments = new JCheckBox("Anh\u00E4nge zum PDF hinzuf\u00FCgen");
-		mergeAttachments.setSelected(true);
-		mergeAttachments.setBackground(Color.WHITE);
-		mergeAttachments.setBounds(280, 69, 180, 23);
-		panel.add(mergeAttachments);
+		final JCheckBox mergePDF = new JCheckBox("PDF-Anh\u00E4nge hinzuf\u00FCgen");
+		mergePDF.setSelected(true);
+		mergePDF.setBackground(Color.WHITE);
+		mergePDF.setBounds(280, 69, 180, 23);
+		panel.add(mergePDF);
+
+
+		final JCheckBox mergeImages = new JCheckBox("Bilder-Anh\u00E4nge hinzuf\u00FCgen");
+		mergeImages.setSelected(false);
+		mergeImages.setBackground(Color.WHITE);
+		mergeImages.setBounds(470, 69, 180, 23);
+		panel.add(mergeImages);
 
 
 		final JCheckBox chckbxExtractAttachments = new JCheckBox("Anh\u00E4nge separat ablegen");
@@ -337,7 +344,7 @@ public class MainWindow {
 				new Thread(new Runnable() {
 					@Override
 					public void run() {
-						startConversion(Collections.list(listModel.elements()), chckbxAddEmailHeaders.isSelected(), proxy, chckbxExtractAttachments.isSelected(), mergeAttachments.isSelected(), chckbxSuffix.isSelected() ? tfSuffix.getText() : null, chckbxFilter.isSelected());
+						startConversion(Collections.list(listModel.elements()), chckbxAddEmailHeaders.isSelected(), proxy, chckbxExtractAttachments.isSelected(), mergePDF.isSelected(), mergeImages.isSelected(), chckbxSuffix.isSelected() ? tfSuffix.getText() : null, chckbxFilter.isSelected());
 					}
 				}).start();
 			}
@@ -396,7 +403,7 @@ public class MainWindow {
 	 *
 	 * @param enumeration
 	 */
-	private void startConversion(List<String> l, boolean showHeaders, String proxy, boolean extractAttachments, boolean mergeAttachments, String suffix, boolean filter) {
+	private void startConversion(List<String> l, boolean showHeaders, String proxy, boolean extractAttachments, boolean mergePDF, boolean mergeImages, String suffix, boolean filter) {
 		try {
 			MimeMessageConverter.resetSerial();
 			ArrayList<String> argsOptions = new ArrayList<String>();
@@ -419,8 +426,12 @@ public class MainWindow {
 				argsOptions.add("--extract-attachments");
 			}
 
-			if(mergeAttachments) {
-				argsOptions.add("--merge-attachments");
+			if(mergePDF) {
+				argsOptions.add("--merge-pdf");
+			}
+
+			if(mergeImages) {
+				argsOptions.add("--merge-images");
 			}
 
 			if(filter) {
